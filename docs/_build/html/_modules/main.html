@@ -1,0 +1,309 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>main &#8212; Astro Pi 23 Feb 2022 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for main</h1><div class="highlight"><pre>
+<span></span><span class="c1">#####Astro Pi competition code</span>
+<span class="c1"># Members:</span>
+<span class="c1"># Theale green school 2022</span>
+<span class="n">REPL</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1">#some bits will only run on the pi so as we are building the code we can still try it here</span>
+<span class="c1">#import libraries</span>
+<span class="c1">#import orbit</span>
+<span class="c1">#from orbit import ISS</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span>
+<span class="c1">#from astro_pi import AstroPi</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="n">REPL</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">picamera</span> <span class="kn">import</span> <span class="n">PiCamera</span>
+    <span class="kn">from</span> <span class="nn">sense_hat</span> <span class="kn">import</span> <span class="n">SenseHat</span>
+<span class="c1">#from pathlib import Path</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+
+<span class="c1">#use pil for images</span>
+<span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="c1">#import datetime</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span><span class="c1">#, timezone</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span>
+
+<span class="n">base_folder</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="c1">#Path(__file__).parent.resolve()  #Path.cwd()</span>
+
+<span class="c1">#define constants</span>
+<span class="n">LATITUDE</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">LONGITUDE</span> <span class="o">=</span> <span class="mi">6</span>
+<span class="n">FUEL_TYPE</span> <span class="o">=</span> <span class="mi">7</span>
+<span class="n">THRESHOLD_SCALE</span> <span class="o">=</span> <span class="mf">2.5</span>  <span class="c1">#how much bigger than the average do we count as clouds</span>
+<span class="n">DURATION</span><span class="o">=</span><span class="mi">2</span> <span class="c1"># How long do we want the experiment to run for</span>
+
+<span class="c1">#define functions</span>
+<div class="viewcode-block" id="read_file"><a class="viewcode-back" href="../code.html#main.read_file">[docs]</a><span class="k">def</span> <span class="nf">read_file</span><span class="p">(</span><span class="n">file_name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function reads the database of power stations from the file supplied and returns a 2d list of power stations</span>
+<span class="sd">    </span>
+<span class="sd">    :param file_name: The name of the csv file to read</span>
+<span class="sd">    :type contents: 2d list</span>
+<span class="sd">    :returns: 2d list of power stations</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">contents</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1">#will hold the contents of the file</span>
+    <span class="n">in_file</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span>  <span class="c1">#open the file</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">in_file</span><span class="p">:</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>  <span class="c1">#split each line at a comma</span>
+        <span class="n">contents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>  <span class="c1">#add to list</span>
+    <span class="n">in_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">contents</span></div>
+
+
+<div class="viewcode-block" id="get_time_stamp"><a class="viewcode-back" href="../code.html#main.get_time_stamp">[docs]</a><span class="k">def</span> <span class="nf">get_time_stamp</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function returns a string timestamp suitable for use in filenames</span>
+<span class="sd">    </span>
+<span class="sd">    :return: The current Date/time ormatted as a string suitable for a filename</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">now</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">_%H%M%S&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_csv"><a class="viewcode-back" href="../code.html#main.create_csv">[docs]</a><span class="k">def</span> <span class="nf">create_csv</span><span class="p">(</span><span class="n">data_file</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function creates a logfile, and adds te first row with column eaders, pass in the name of te file</span>
+<span class="sd">    </span>
+<span class="sd">    :param data_file: Create a CSV file with headers for eac column</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;Date/time&quot;</span><span class="p">,</span> <span class="s2">&quot;Latitude&quot;</span><span class="p">,</span> <span class="s2">&quot;Longitide&quot;</span><span class="p">,</span> <span class="s2">&quot;Elevation&quot;</span><span class="p">,</span> <span class="s2">&quot;Compass&quot;</span><span class="p">,</span> <span class="s2">&quot;Red Treshhold&quot;</span><span class="p">,</span> <span class="s2">&quot;Green Treshhold&quot;</span><span class="p">,</span> <span class="s2">&quot;Blue Treshhold&quot;</span><span class="p">)</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">header</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="add_csv_data"><a class="viewcode-back" href="../code.html#main.add_csv_data">[docs]</a><span class="k">def</span> <span class="nf">add_csv_data</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function is used to add data to te logfile, pass in te name of the file and the data to be written.</span>
+<span class="sd">    Uses the csv library</span>
+<span class="sd">    </span>
+<span class="sd">    :param data_file: The name of the file that we are going to log to</span>
+<span class="sd">    :param data: Data to be written to te file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">data_file</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_image_thresholds"><a class="viewcode-back" href="../code.html#main.get_image_thresholds">[docs]</a><span class="k">def</span> <span class="nf">get_image_thresholds</span><span class="p">(</span><span class="n">image_array</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function takes an image array and finds the average value for each (non black) pixel, ith then returns scaled values for the thresholds for deciding whether a pixel is cloud or not. It uses the constant THRESHOLD_SCALE</span>
+<span class="sd">    </span>
+<span class="sd">    :param image_array: Takes an image converted to a nparray [width][height][R,G,B]</span>
+<span class="sd">    :return: The treshold values for RGB</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># work out the dimensions of the image</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="n">image_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">height</span> <span class="o">=</span> <span class="n">image_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">pixel_count</span> <span class="o">=</span> <span class="n">width</span> <span class="o">*</span> <span class="n">height</span>
+    <span class="c1"># Work out how many pixels are pure black (mostly the edge)</span>
+    <span class="c1"># work out the average pixel intensity</span>
+    <span class="c1"># calculate how many pixels are greater than the THRESHOLD_SCALE * average - this is not needed in the final code</span>
+    <span class="n">black</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">array_sum</span> <span class="o">=</span> <span class="n">image_array</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">red_threshold</span> <span class="o">=</span> <span class="n">array_sum</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">pixel_count</span> <span class="o">-</span> <span class="n">black</span><span class="p">)</span> <span class="o">*</span> <span class="n">THRESHOLD_SCALE</span>
+    <span class="k">if</span> <span class="n">red_threshold</span> <span class="o">&gt;</span> <span class="mi">250</span><span class="p">:</span>
+        <span class="n">red_threshold</span> <span class="o">=</span> <span class="mi">250</span>
+    <span class="n">green_threshold</span> <span class="o">=</span> <span class="n">array_sum</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">pixel_count</span> <span class="o">-</span> <span class="n">black</span><span class="p">)</span> <span class="o">*</span> <span class="n">THRESHOLD_SCALE</span>
+    <span class="k">if</span> <span class="n">green_threshold</span> <span class="o">&gt;</span> <span class="mi">250</span><span class="p">:</span>
+        <span class="n">green_threshold</span> <span class="o">=</span> <span class="mi">250</span>
+    <span class="n">blue_threshold</span> <span class="o">=</span> <span class="n">array_sum</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">pixel_count</span> <span class="o">-</span> <span class="n">black</span><span class="p">)</span> <span class="o">*</span> <span class="n">THRESHOLD_SCALE</span>
+    <span class="k">if</span> <span class="n">blue_threshold</span> <span class="o">&gt;</span> <span class="mi">250</span><span class="p">:</span>
+        <span class="n">blue_threshold</span> <span class="o">=</span> <span class="mi">250</span>
+    <span class="k">return</span> <span class="n">red_threshold</span><span class="p">,</span> <span class="n">green_threshold</span><span class="p">,</span> <span class="n">blue_threshold</span></div>
+
+
+<span class="c1">############################################</span>
+<span class="c1">#</span>
+<span class="c1">#   Main</span>
+<span class="c1">#</span>
+<span class="c1">############################################</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c1">#power_stations list</span>
+    <span class="c1">#[country,	country_long,	name,	gppd_idnr,	capacity_mw,	latitude,	longitude,	primary_fuel ]</span>
+    <span class="c1">#sorted by longitutde then latitude</span>
+
+    <span class="n">power_stations</span> <span class="o">=</span> <span class="n">read_file</span><span class="p">(</span><span class="s2">&quot;solarandwind2.csv&quot;</span><span class="p">)</span>
+    <span class="n">data_file</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">base_folder</span><span class="p">)</span> <span class="o">+</span>  <span class="s2">&quot;logfile.csv&quot;</span>
+    <span class="n">create_csv</span><span class="p">(</span><span class="n">data_file</span><span class="p">)</span>
+    <span class="c1">#run for three hours</span>
+
+    <span class="c1"># Create a `datetime` variable to store the start time</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+    <span class="c1"># Create a `datetime` variable to store the current time</span>
+    <span class="c1"># (these will be almost the same at the start)</span>
+    <span class="n">now_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+    <span class="c1"># Run a loop for 2 minutes</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">now_time</span> <span class="o">&lt;</span> <span class="n">start_time</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span> <span class="o">=</span> <span class="n">DURATION</span><span class="p">)):</span>
+        <span class="c1">#print(&quot;Doing stuff&quot;)</span>
+        <span class="c1">#sleep(1)</span>
+
+        <span class="c1">#test print the first power station latitude,longitude and type</span>
+        <span class="c1">#print(power_stations[0][LATITUDE], power_stations[0][LONGITUDE],power_stations[0][FUEL_TYPE])</span>
+        <span class="c1">#point = ISS.coordinates()</span>
+        <span class="c1">#test print timestamp</span>
+        <span class="c1">#print(get_time_stamp())</span>
+        <span class="c1">#test print position of ISS</span>
+        <span class="c1">#print(point.latitude.degrees, point.longitude.degrees, point.elevation.km)</span>
+
+        <span class="c1">#images taken are at whatever orientation the camera is in the ISS window and will need rotating</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">REPL</span><span class="p">:</span>
+            <span class="n">ap</span> <span class="o">=</span> <span class="n">SenseHat</span><span class="p">()</span>
+            <span class="n">north</span> <span class="o">=</span> <span class="mi">360</span> <span class="o">-</span> <span class="n">ap</span><span class="o">.</span><span class="n">get_compass</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">north</span> <span class="o">=</span> <span class="mi">230</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;North </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">north</span><span class="p">)</span>
+
+        <span class="n">current_image</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;images/photo_07003_51845702676_o.jpg&quot;</span><span class="p">)</span>
+        <span class="n">current_image</span> <span class="o">=</span> <span class="n">current_image</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="mi">360</span> <span class="o">-</span>
+                                             <span class="n">north</span><span class="p">)</span>  <span class="c1">#230) #picked for sample image</span>
+        <span class="c1">#the rotation angle will depend on the orientation of the pi</span>
+        <span class="n">current_image</span> <span class="o">=</span> <span class="n">current_image</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;RGB&quot;</span><span class="p">)</span>
+        <span class="c1">#current_image.show()</span>
+        <span class="c1">#convert to array</span>
+        <span class="c1">#copy=current_image.copy()</span>
+        <span class="n">image_array</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">current_image</span><span class="p">)</span>
+        <span class="c1">#image_array.setflags(write=1)</span>
+        <span class="c1">#get data for one pixel</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;R:&quot;</span><span class="p">,</span> <span class="n">image_array</span><span class="p">[</span><span class="mi">1000</span><span class="p">][</span><span class="mi">1000</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;G:&quot;</span><span class="p">,</span> <span class="n">image_array</span><span class="p">[</span><span class="mi">1000</span><span class="p">][</span><span class="mi">1000</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+              <span class="s2">&quot;B:&quot;</span><span class="p">,</span> <span class="n">image_array</span><span class="p">[</span><span class="mi">1000</span><span class="p">][</span><span class="mi">1000</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span> <span class="n">image_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+              <span class="n">image_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">red_threshold</span><span class="p">,</span> <span class="n">green_threshold</span><span class="p">,</span> <span class="n">blue_threshold</span> <span class="o">=</span> <span class="n">get_image_thresholds</span><span class="p">(</span>
+            <span class="n">image_array</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;r:&quot;</span><span class="p">,</span> <span class="n">red_threshold</span><span class="p">,</span> <span class="s2">&quot;g:&quot;</span><span class="p">,</span> <span class="n">green_threshold</span><span class="p">,</span> <span class="s2">&quot;b:&quot;</span><span class="p">,</span> <span class="n">blue_threshold</span><span class="p">)</span>
+
+        <span class="c1"># work out the dimensions of the image</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="n">image_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">height</span> <span class="o">=</span> <span class="n">image_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">pixel_count</span> <span class="o">=</span> <span class="n">width</span> <span class="o">*</span> <span class="n">height</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">black</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1">#     for i in range(height):</span>
+        <span class="c1">#       for j in range(width):</span>
+        <span class="c1">#         if image_array[i][j][0] &gt; red_threshold and image_array[i][j][1] &gt; green_threshold and image_array[i][j][2] &gt; blue_threshold:</span>
+        <span class="c1">#           count = count+1</span>
+        <span class="c1">#           #image_array[i][j]=[0,0,0]</span>
+        <span class="c1">#         if image_array[i][j][0] ==0 and image_array[i][j][1] ==0 and image_array[i][j][2] ==0:</span>
+        <span class="c1">#           black = black+1</span>
+        <span class="c1">#     print(&quot;pixels:&quot;,pixel_count,&quot;Black:&quot;,black,&quot;light:&quot;,count)</span>
+        <span class="c1">#     print(&quot;Nearly white pixels:&quot;, count, (count/((pixel_count)-black))*100, &quot;%&quot;)</span>
+        <span class="c1">#for testing</span>
+        <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">image_array</span><span class="p">,</span> <span class="s1">&#39;RGB&#39;</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span>
+            <span class="n">base_folder</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;/images/&quot;</span> <span class="o">+</span> <span class="n">get_time_stamp</span><span class="p">()</span> <span class="o">+</span> <span class="s2">&quot;-output.jpg&quot;</span>
+        <span class="n">img</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;jpeg&quot;</span><span class="p">)</span>
+        <span class="c1">#img.show()</span>
+        <span class="c1"># saving to log file</span>
+        <span class="c1">#row = (datetime.now(), point.latitude.degrees, point.longitude.degrees, point.elevation.km, north, red_threshold, green_threshold, blue_threshold)</span>
+        <span class="c1">#add_csv_data(data_file, row)</span>
+        <span class="c1"># Update the current time</span>
+        <span class="n">now_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="n">sleep</span><span class="p">(</span><span class="mi">17</span><span class="p">)</span>
+
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Astro Pi</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../code.html">Code docs</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Theale Green School.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
