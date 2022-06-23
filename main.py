@@ -1,7 +1,7 @@
 #####Astro Pi competition code
 # Members:
 # Theale green school 2022
-REPL = True  #some bits will only run on the pi so as we are building the code we can still try it here
+REPL = False  #some bits will only run on the pi so as we are building the code we can still try it here
 #import libraries
 #import orbit
 from orbit import ISS
@@ -11,6 +11,7 @@ if not REPL:
     from picamera import PiCamera
     from sense_hat import SenseHat
 from pathlib import Path
+from logzero import logger, logfile
 import csv
 
 #use pil for images
@@ -27,11 +28,11 @@ LATITUDE = 5
 LONGITUDE = 6
 FUEL_TYPE = 7
 THRESHOLD_SCALE = 2.5  #how much bigger than the average do we count as clouds
-DURATION=1 # How long do we want the experiment to run for
+DURATION=178 # How long do we want the experiment to run for
 
 #define functions
 def read_file(file_name):
-    """"
+    """
     This function reads the database of power stations from the file supplied and returns a 2d list of power stations
     :param file_name: The name of te csv file to read
     :type contents: 2d list
@@ -46,20 +47,50 @@ def read_file(file_name):
     in_file.close()
     return contents
 
-def take_photo():
+def convert(angle):
+    """
+    Convert a `skyfield` Angle to an EXIF-appropriate
+    representation (rationals)
+    e.g. 98degrees 34minutes 58.7 to "98/1,34/1,587/10"
+    
+    Return a tuple containing a boolean and the converted angle,
+    with the boolean indicating if the angle is negative.
+    """
+    sign, degrees, minutes, seconds = angle.signed_dms()
+    exif_angle = f'{degrees:.0f}/1,{minutes:.0f}/1,{seconds*10:.0f}/10'
+    return sign < 0, exif_angle
+
+def take_photo(camera,location,image_file):
   """
   This function accesses the camera and takes a phot, it return the photo. for test purposes it will return a fixed image
+  :param camera: The camera object
+  :param location: The object containing te current location of the ISS
+  :param image_file: The name used to save the image
   :returns: an image taken with the camera, for debug it uses a fixed image
   """
   if not REPL:
     #add code to take the photo
-    current_image=""
+    #location = ISS.coordinates()
+
+    # Convert the latitude and longitude to EXIF-appropriate representations
+    south, exif_latitude = convert(location.latitude)
+    west, exif_longitude = convert(location.longitude)
+
+    # Set the EXIF tags specifying the current location
+    camera.exif_tags['GPS.GPSLatitude'] = exif_latitude
+    camera.exif_tags['GPS.GPSLatitudeRef'] = "S" if south else "N"
+    camera.exif_tags['GPS.GPSLongitude'] = exif_longitude
+    camera.exif_tags['GPS.GPSLongitudeRef'] = "W" if west else "E"
+
+    # Capture the image
+    camera.capture(image_file)
+    current_image = Image.open(image_file)
   else:
-    current_image = Image.open("images/photo_07003_51845702676_o.jpg")
+    current_image = Image.open("images/blank.jpg")
   return current_image
 
 def get_time_stamp():
-    """"
+    """
     This function return a string timestamp suitable for use in filenames
     :returns: a string with the date and time suitable for use in a file name
     """
@@ -90,7 +121,7 @@ def add_csv_data(data_file, data):
 
 
 def get_image_thresholds(image_array):
-    """"
+    """
     This function takes an image array and finds the average value for each (non black) pixel, ith then returns scaled values for the thresholds for deciding whether a pixel is cloud or not. It uses the constant THRESHOLD_SCALE
     :returns: The RGB values above which we will consider the pixel to be a cloud
     """
@@ -116,6 +147,7 @@ def get_image_thresholds(image_array):
     return red_threshold, green_threshold, blue_threshold
 
 
+
 ############################################
 #
 #   Main
@@ -125,11 +157,27 @@ if __name__ == '__main__':
     #power_stations list
     #[country,	country_long,	name,	gppd_idnr,	capacity_mw,	latitude,	longitude,	primary_fuel ]
     #sorted by longitutde then latitude
+    # Set a logfile name
+    logfile(base_folder/"events.log")
+    logger.error("Created error log file")
+    try:
+      power_stations = read_file("solarandwind2.csv")
+    except Exception as e:
+          logger.error(f'{e.__class__.__name__}: {e}')
+          power_stations=[]
 
-    power_stations = read_file("solarandwind2.csv")
-    data_file = str(base_folder) +  "logfile.csv"
+    data_file = str(base_folder) +  "/logfile.csv"
     create_csv(data_file)
-    #run for three hours
+    
+    # Set up camera
+    camera = PiCamera()
+    try:
+      #HQ camera
+      camera.resolution = (4056,3040)
+    except Exception as e:
+      logger.error(f'{e.__class__.__name__}: {e}')
+      logger.error("Using low res camera mode")
+      camera.resolution = (1296, 972)
 
     # Create a `datetime` variable to store the start time
     start_time = datetime.now()
@@ -138,40 +186,48 @@ if __name__ == '__main__':
     now_time = datetime.now()
     # Run a loop for 2 minutes
     while (now_time < start_time + timedelta(minutes = DURATION)):
-        #Get current coordinates of the ISS
-        point = ISS.coordinates()
-        
         #images taken are at whatever orientation the camera is in the ISS window and will need rotating
-        if not REPL:
-            ap = SenseHat()
-            north = 360 - ap.get_compass()
-        else:
-            north = 120
-
-        current_image = take_photo()
-        #save the unmodified photo
-        file_name = str(
+        try:
+            if not REPL:
+              ap = SenseHat()
+              north = 360 - ap.get_compass()
+            else:
+              north = 120
+        except Exception as e:
+            logger.error(f'{e.__class__.__name__}: {e}')
+            north=0
+        #Get current coordinates of the ISS
+        try:
+          point = ISS.coordinates()
+        
+          
+              
+          
+          #take a poto and save the unmodified photo
+          file_name = str(
             base_folder) + "/images/" + get_time_stamp() + "-output.jpg"
-        current_image.save(file_name, format="jpeg")
-
-        #current_image = current_image.rotate(360 - north)  
-        #not needed at this point
-        #the rotation angle will depend on the orientation of the pi
-        current_image = current_image.convert(mode="RGB")
+          current_image = take_photo(camera,point,file_name)
+          #current_image.save(file_name, format="jpeg")
         
-        image_array = numpy.asarray(current_image)
+          #current_image = current_image.rotate(360 - north)  
+          #not needed at this point
+          #the rotation angle will depend on the orientation of the pi
+          current_image = current_image.convert(mode="RGB")
+        
+          image_array = numpy.asarray(current_image)
         
 
-        red_threshold, green_threshold, blue_threshold = get_image_thresholds(
+          red_threshold, green_threshold, blue_threshold = get_image_thresholds(
             image_array)
                 
-        # saving to log file
-        row = (datetime.now(), point.latitude.degrees, point.longitude.degrees, point.elevation.km, north, red_threshold, green_threshold, blue_threshold)
-        add_csv_data(data_file, row)
+          # saving to log file
+          row = (datetime.now(),    point.latitude.degrees, point.longitude.degrees, point.elevation.km, north, red_threshold, green_threshold, blue_threshold)
+          add_csv_data(data_file, row)
+        except Exception as e:
+          logger.error(f'{e.__class__.__name__}: {e}')
         # Update the current time
         now_time = datetime.now()
         sleep(17)
-      except Exception as e:
-        logger.error(f'{e.__class__.__name__}: {e}')
+      
 
 
